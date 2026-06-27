@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Awaitable
 from typing import Any, cast
 
 from redis.asyncio import Redis
@@ -83,20 +82,14 @@ class RedisClient(Redis):
         sha = self._scripts_sha_cache.get(name)
         if sha:
             try:
-                result = self.evalsha(sha, len(keys), *keys, *args)
-                if hasattr(result, "__await__"):
-                    return cast(list[Any], await cast(Awaitable[Any], result))
-                return cast(list[Any], result)
+                return await self._run_evalsha(sha, keys, args)
             except ResponseError as exc:
                 if "NOSCRIPT" not in str(exc):
                     raise
 
-        script = self._lua_scripts[name]
-        loaded_sha = await self.script_load(script)
-        if isinstance(loaded_sha, bytes):
-            loaded_sha = loaded_sha.decode("utf-8")
+        loaded_sha = await self.script_load(self._lua_scripts[name])
         self._scripts_sha_cache[name] = loaded_sha
-        result = self.evalsha(loaded_sha, len(keys), *keys, *args)
-        if hasattr(result, "__await__"):
-            return cast(list[Any], await cast(Awaitable[Any], result))
-        return cast(list[Any], result)
+        return await self._run_evalsha(loaded_sha, keys, args)
+
+    async def _run_evalsha(self, sha: str, keys: list[str], args: list[str]) -> list[Any]:
+        return cast(list[Any], await self.evalsha(sha, len(keys), *keys, *args))

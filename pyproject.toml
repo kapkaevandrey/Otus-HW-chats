@@ -2,7 +2,7 @@
 name = "otus-chats"
 version = "0.1.0"
 description = "Otus chat service for direct dialogs"
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 dependencies = [
     "aiokafka>=0.14.0",
     "alembic>=1.18.5",
@@ -86,7 +86,7 @@ section-order = ["future", "standard-library", "third-party", "first-party", "lo
 lines-after-imports = 2
 
 [tool.mypy]
-python_version = "3.13"
+python_version = "3.14"
 ignore_missing_imports = true
 follow_imports = "silent"
 pretty = true

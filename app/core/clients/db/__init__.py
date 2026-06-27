@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from .base import SQLAlchemyAsyncDbBaseClient
 from .postgres import SQLAlchemyAsyncPgClient
 from .redis import RedisClient
