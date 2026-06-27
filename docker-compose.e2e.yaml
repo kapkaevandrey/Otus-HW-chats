@@ -1,0 +1,12 @@
+# E2E: avoid redis container name clash with monolith; chat app runs locally.
+services:
+  valkey:
+    container_name: chats_redis
+    networks:
+      default:
+        aliases:
+          - redis
+
+  db:
+    ports:
+      - "5433:5432"

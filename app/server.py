@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import ssl
 from collections.abc import AsyncGenerator, Callable
@@ -74,6 +75,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
         "sasl_plain_username": kafka_settings.KAFKA_SASL_PLAIN_USERNAME,
         "sasl_plain_password": kafka_settings.KAFKA_SASL_PLAIN_PASSWORD,
         "ssl_context": ssl.create_default_context() if "SSL" in kafka_settings.KAFKA_SECURITY_PROTOCOL else None,
+        "value_deserializer": lambda message: json.loads(message.decode("utf-8")),
     }
     user_consumer = UserConsumer(
         context=context,
