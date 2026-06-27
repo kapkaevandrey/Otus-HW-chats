@@ -1,0 +1,92 @@
+## ---------------------------------------------------------------
+## Local environment commands:
+## ---------------------------------------------------------------
+
+.DEFAULT_GOAL := run_tests
+
+WORKERS ?= 3
+APP_INSTANCES ?=2
+PROJECT_NAME ?= dialogs
+
+## run:       start app in docker
+run:
+	PROJECT_NAME=$(PROJECT_NAME) WORKERS=$(WORKERS) APP_INSTANCES=$(APP_INSTANCES) docker-compose -p $(PROJECT_NAME) up --scale worker=$(WORKERS) --scale app-instance=$(APP_INSTANCES)
+
+## run_load_test:       start app in docker with infra for testing
+run_load_test: down
+	docker-compose -f test_infra/docker-compose.yaml up
+
+## run_load_read_test:       start app in docker with infra for testing
+run_load_read_test_single_db: down
+	docker-compose -f test_infra/docker-compose.yaml -p test_load_infra up -d
+	uv run test_infra/scripts/generate_users.py
+	docker-compose -f test_infra/docker-compose.yaml -p test_load_infra run --rm -p 5665:5665 k6 run /scripts/load_read_users.js
+
+run_load_read_test_infra_db_replicas: down
+	docker-compose -f test_infra/docker-compose.db-replica.yaml -p test_load_infra_db up -d
+	uv run test_infra/scripts/generate_users.py
+	docker-compose -f test_infra/docker-compose.db-replica.yaml -p test_load_infra_db run --rm -p 5665:5665 k6 run /scripts/load_read_users.js
+
+run_load_dialog_test_single_db: down
+	docker-compose -f test_infra/docker-compose.yaml -p test_load_dialogs up -d
+	docker-compose -f test_infra/docker-compose.yaml -p test_load_dialogs run --rm -p 5665:5665 k6 run /scripts/load_dialogs.js
+
+start_db_replicas_infra: down
+	docker-compose -f test_infra/docker-compose.db-replica.yaml -p test_load_infra_db up -d
+	docker stop replica_pg_1 replica_pg_2
+
+
+down:
+	PROJECT_NAME=$(PROJECT_NAME) docker-compose -p $(PROJECT_NAME) down --remove-orphans
+	docker-compose -f test_infra/docker-compose.yaml down --remove-orphans
+
+
+## pytest:    run pytest
+pytest: down
+	docker-compose run app ./docker-entrypoint.sh pytest
+
+## coverage: Check coverage
+coverage:
+	docker-compose run --rm app ./docker-entrypoint.sh coverage
+
+
+## check_code        Checks code with linter
+check_code:
+	docker-compose run app ./docker-entrypoint.sh check_code
+
+## format_code:      Apply formatters
+format_code:
+	docker-compose run app ./docker-entrypoint.sh format_code
+
+
+## migration: create alembic migration with revision name in {num_by_day}_{revision_comment} format
+migration:
+	@read -p "Enter revision name in {num_by_day}_{revision_comment} format: " revision_name; \
+	docker-compose run app alembic revision --autogenerate -m $$revision_name
+
+## revision:
+revision:
+	 @read -p "Enter revision name in {num_by_day}_{revision_comment} format: " revision_name; \
+ 	docker-compose run app alembic revision -m $$revision_name
+
+## upgrade:   upgrade alembic migrations
+upgrade:
+	docker-compose run app alembic upgrade head
+
+## downgrade: downgrade alembic migrations
+downgrade:
+	docker-compose run app alembic downgrade base
+
+
+## ---------------------------------------------------------------
+## Requirements managing: uv required to be installed
+## ---------------------------------------------------------------
+
+install:
+	uv sync --group dev
+
+update:
+	uv sync --upgrade --group dev
+
+help:
+	@sed -ne '/@sed/!s/## //p' $(MAKEFILE_LIST)
