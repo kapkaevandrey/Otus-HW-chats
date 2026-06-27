@@ -2,89 +2,47 @@
 ## Local environment commands:
 ## ---------------------------------------------------------------
 
-.DEFAULT_GOAL := run_tests
+.DEFAULT_GOAL := help
 
-WORKERS ?= 3
-APP_INSTANCES ?=2
-PROJECT_NAME ?= dialogs
+PROJECT_NAME ?= otus-chats
 
-## run:       start app in docker
+## run:       start chat service in docker
 run:
-	PROJECT_NAME=$(PROJECT_NAME) WORKERS=$(WORKERS) APP_INSTANCES=$(APP_INSTANCES) docker-compose -p $(PROJECT_NAME) up --scale worker=$(WORKERS) --scale app-instance=$(APP_INSTANCES)
+	docker compose -p $(PROJECT_NAME) up --build
 
-## run_load_test:       start app in docker with infra for testing
-run_load_test: down
-	docker-compose -f test_infra/docker-compose.yaml up
-
-## run_load_read_test:       start app in docker with infra for testing
-run_load_read_test_single_db: down
-	docker-compose -f test_infra/docker-compose.yaml -p test_load_infra up -d
-	uv run test_infra/scripts/generate_users.py
-	docker-compose -f test_infra/docker-compose.yaml -p test_load_infra run --rm -p 5665:5665 k6 run /scripts/load_read_users.js
-
-run_load_read_test_infra_db_replicas: down
-	docker-compose -f test_infra/docker-compose.db-replica.yaml -p test_load_infra_db up -d
-	uv run test_infra/scripts/generate_users.py
-	docker-compose -f test_infra/docker-compose.db-replica.yaml -p test_load_infra_db run --rm -p 5665:5665 k6 run /scripts/load_read_users.js
-
-run_load_dialog_test_single_db: down
-	docker-compose -f test_infra/docker-compose.yaml -p test_load_dialogs up -d
-	docker-compose -f test_infra/docker-compose.yaml -p test_load_dialogs run --rm -p 5665:5665 k6 run /scripts/load_dialogs.js
-
-start_db_replicas_infra: down
-	docker-compose -f test_infra/docker-compose.db-replica.yaml -p test_load_infra_db up -d
-	docker stop replica_pg_1 replica_pg_2
-
-
+## down:      stop containers
 down:
-	PROJECT_NAME=$(PROJECT_NAME) docker-compose -p $(PROJECT_NAME) down --remove-orphans
-	docker-compose -f test_infra/docker-compose.yaml down --remove-orphans
+	docker compose -p $(PROJECT_NAME) down --remove-orphans
 
-
-## pytest:    run pytest
+## pytest:    run pytest in docker
 pytest: down
-	docker-compose run app ./docker-entrypoint.sh pytest
+	docker compose -p $(PROJECT_NAME) run --rm app pytest
 
-## coverage: Check coverage
+## coverage:  check coverage in docker
 coverage:
-	docker-compose run --rm app ./docker-entrypoint.sh coverage
+	docker compose -p $(PROJECT_NAME) run --rm app coverage
 
-
-## check_code        Checks code with linter
+## check_code: run linter and mypy
 check_code:
-	docker-compose run app ./docker-entrypoint.sh check_code
+	docker compose -p $(PROJECT_NAME) run --rm app check_code
 
-## format_code:      Apply formatters
+## format_code: apply formatters
 format_code:
-	docker-compose run app ./docker-entrypoint.sh format_code
+	docker compose -p $(PROJECT_NAME) run --rm app format_code
 
-
-## migration: create alembic migration with revision name in {num_by_day}_{revision_comment} format
-migration:
-	@read -p "Enter revision name in {num_by_day}_{revision_comment} format: " revision_name; \
-	docker-compose run app alembic revision --autogenerate -m $$revision_name
-
-## revision:
-revision:
-	 @read -p "Enter revision name in {num_by_day}_{revision_comment} format: " revision_name; \
- 	docker-compose run app alembic revision -m $$revision_name
-
-## upgrade:   upgrade alembic migrations
+## upgrade:   apply alembic migrations
 upgrade:
-	docker-compose run app alembic upgrade head
+	docker compose -p $(PROJECT_NAME) run --rm app alembic upgrade head
 
-## downgrade: downgrade alembic migrations
+## downgrade: rollback alembic migrations
 downgrade:
-	docker-compose run app alembic downgrade base
+	docker compose -p $(PROJECT_NAME) run --rm app alembic downgrade base
 
-
-## ---------------------------------------------------------------
-## Requirements managing: uv required to be installed
-## ---------------------------------------------------------------
-
+## install:   install dependencies locally via uv
 install:
 	uv sync --group dev
 
+## update:    update dependencies via uv
 update:
 	uv sync --upgrade --group dev
 

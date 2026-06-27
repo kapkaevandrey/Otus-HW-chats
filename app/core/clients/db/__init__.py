@@ -1,4 +1,8 @@
-__all__ = ["RedisClient", "SQLAlchemyAsyncPgClient", "SQLAlchemyAsyncDbBaseClient"]
+from __future__ import annotations
 
-from .postgres import SQLAlchemyAsyncDbBaseClient, SQLAlchemyAsyncPgClient
+from .base import SQLAlchemyAsyncDbBaseClient
+from .postgres import SQLAlchemyAsyncPgClient
 from .redis import RedisClient
+
+
+__all__ = ["RedisClient", "SQLAlchemyAsyncPgClient", "SQLAlchemyAsyncDbBaseClient"]

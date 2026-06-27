@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import random as rnd
 from abc import ABC, abstractmethod

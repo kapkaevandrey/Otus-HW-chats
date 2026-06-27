@@ -706,7 +706,7 @@ wheels = [
 ]
 
 [[package]]
-name = "otus-social-network"
+name = "otus-chats"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+
 class RetriesExceededError(Exception):
     """Exception means that number of attempts to process message exceeded max
     times."""

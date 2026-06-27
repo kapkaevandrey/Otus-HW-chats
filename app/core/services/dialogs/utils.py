@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import datetime as dt
 from http import HTTPStatus
 from uuid import UUID, uuid4

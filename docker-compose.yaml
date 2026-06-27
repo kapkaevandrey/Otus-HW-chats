@@ -1,4 +1,20 @@
 services:
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    restart: "no"
+    environment:
+      DB_MASTER_HOST: db
+      DB_DATABASE: chats
+    env_file:
+      - dev.env
+    command: ["init"]
+    depends_on:
+      db:
+        condition: service_healthy
+
   app:
     build:
       context: .
@@ -7,16 +23,22 @@ services:
     restart: always
     environment:
       ALLOW_ORIGINS: "http://localhost:3030,http://0.0.0.0:3030"
-      DB_HOST: db
+      DB_MASTER_HOST: db
       DB_DATABASE: chats
       KAFKA_BROKERS: kafka:9093
       REDIS_HOST: redis
     ports:
-      - "8000:8000"
+      - "8001:8001"
     env_file:
       - dev.env
-    command: ["api", "8000"]
+    command: ["api", "8001"]
     depends_on:
+      migrate:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+      kafka:
+        condition: service_started
       valkey:
         condition: service_started
       redis-script-loader:
@@ -26,16 +48,15 @@ services:
     image: postgres:17
     restart: always
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
-      - POSTGRES_DB=chats
-      - POSTGRES_PASSWORD=app_pswd
+      POSTGRES_DB: chats
+      POSTGRES_PASSWORD: app_pswd
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
       retries: 5
-
 
   kafka:
     image: dhi.io/kafka:4.1-native
@@ -74,7 +95,7 @@ services:
     image: dhi.io/valkey:9
     container_name: redis
     ports:
-      - "6379:6379"
+      - "6380:6379"
     command: ["valkey-server", "--protected-mode", "no"]
     healthcheck:
       test: ["CMD", "valkey-cli", "ping"]
@@ -97,7 +118,6 @@ services:
           echo "Loaded $$f"
         done
         echo "Redis Lua scripts loaded."
-        
 
 volumes:
   kafka_data:

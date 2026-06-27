@@ -1,5 +1,9 @@
+from __future__ import annotations
+
 from functools import cached_property
 from typing import Any
+
+from pydantic import BaseModel
 
 from app.core.clients.kafka import CUDMessageValue, KafkaActionConsumer
 from app.core.containers import Context
@@ -24,45 +28,48 @@ class UserConsumer(KafkaActionConsumer):
     async def _handle_action_create(
         self, message_key: str | None, message: CUDMessageValue[UserInboxData], context: dict
     ) -> None:
-        service_resposne = await self.user_service.upsert_user_from_inbox(message.data)
-        if service_resposne.is_success:
-            self.logger.info("User profile successfully created", extra=self._log_extra_result(r.result))
+        service_response = await self.user_service.upsert_user_from_inbox(message.data)
+        if service_response.is_success:
+            self.logger.info("User profile successfully created", extra=self._log_extra_result(service_response.result))
         else:
             self.logger.error(
                 "Failed to create user profile",
                 extra={
-                    "error_message": r.error_message,
-                    "error_details": r.error_details,
+                    "error_message": service_response.error_message,
+                    "error_details": service_response.error_details,
                 },
             )
 
     async def _handle_action_update(
         self, message_key: str | None, message: CUDMessageValue[UserInboxData], context: dict
     ) -> None:
-        service_resposne = await self.user_service.upsert_user_from_inbox(message.data)
-        if service_resposne.is_success:
-            self.logger.info("User profile successfully updated", extra=self._log_extra_result(r.result))
+        service_response = await self.user_service.upsert_user_from_inbox(message.data)
+        if service_response.is_success:
+            self.logger.info("User profile successfully updated", extra=self._log_extra_result(service_response.result))
         else:
             self.logger.error(
                 "Failed to update user profile",
                 extra={
-                    "error_message": r.error_message,
-                    "error_details": r.error_details,
+                    "error_message": service_response.error_message,
+                    "error_details": service_response.error_details,
                 },
             )
 
     async def _handle_action_delete(
         self, message_key: str | None, message: CUDMessageValue[UserInboxData], context: dict
     ) -> None:
-        service_resposne = await self.user_service.remove_user_from_inbox(message.data)
-        if service_resposne.is_success:
-            self.logger.info("User profile successfully deleted from inbox", extra=self._log_extra_result(r.result))
+        service_response = await self.user_service.remove_user_from_inbox(message.data)
+        if service_response.is_success:
+            self.logger.info(
+                "User profile successfully deleted from inbox",
+                extra=self._log_extra_result(service_response.result),
+            )
         else:
             self.logger.error(
                 "Failed to delete user profile from inbox",
                 extra={
-                    "error_message": r.error_message,
-                    "error_details": r.error_details,
+                    "error_message": service_response.error_message,
+                    "error_details": service_response.error_details,
                 },
             )
 

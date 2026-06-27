@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -11,10 +13,7 @@ from app.core.clients.db import SQLAlchemyAsyncDbBaseClient
 from app.core.enums import Tables
 from app.schemas.dto import UserDto
 
-from .repos import (
-    BaseRepository,
-    UserRepo,
-)
+from .repos import BaseRepository, UserRepo
 
 
 class UnitOfWork:
@@ -26,12 +25,7 @@ class UnitOfWork:
 
     @property
     def repositories(self) -> list[BaseRepository]:
-        return [
-            self._user_repo,
-            self._user_friends_repo,
-            self._user_publication_repo,
-            self._event_actions_repo,
-        ]
+        return [self._user_repo]
 
     @property
     def user_repo(self) -> UserRepo:

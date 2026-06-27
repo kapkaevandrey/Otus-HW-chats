@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import datetime as dt
 from uuid import UUID
 
@@ -15,8 +17,6 @@ class UserDto(EmptyBaseSchema):
     birthdate: dt.date
     biography: str | None
     city: str | None
-    password: str
-    created_at: dt.datetime
 
 
 class UserCreateSchema(EmptyBaseSchema):

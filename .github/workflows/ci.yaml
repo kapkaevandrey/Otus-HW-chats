@@ -38,7 +38,25 @@ jobs:
     env:
       DEBUG: "true"
       REDIS_HOST: "localhost"
+      REDIS_PORT: "6379"
+      DB_MASTER_HOST: "localhost"
+      DB_MASTER_PORT: "5432"
+      DB_MASTER_USER: "postgres"
+      DB_MASTER_PASSWORD: "app_pswd"
+      DB_DATABASE: "chats"
     services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: app_pswd
+          POSTGRES_DB: chats
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
       valkey:
         image: valkey/valkey:7
         ports:
@@ -65,11 +83,6 @@ jobs:
     - name: Install dependencies with uv
       run: |
         uv sync --frozen --group dev
-    - name: Verify Redis scripts exist
-      run: |
-        ls -la app/scripts/redis
-        test -f app/scripts/redis/send_message_to_user.lua
-        test -f app/scripts/redis/get_dialog_with_users.lua
     - name: Load Redis scripts
       run: |
         uv run python - <<'PY'
@@ -96,7 +109,6 @@ jobs:
 
   docker_build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@master
@@ -107,13 +119,13 @@ jobs:
           docker build \
             --target dev \
             --build-arg PYTHON_VERSION=3.14 \
-            -t otus-social-network:dev .
+            -t otus-chats:dev .
       - name: Build Prod image
         run: |
           docker build \
             --target prod \
             --build-arg PYTHON_VERSION=3.14 \
-            -t otus-social-network:prod .
+            -t otus-chats:prod .
       - name: Verify images
         run: |
-          docker images | grep otus-social-network
+          docker images | grep otus-chats

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Awaitable, Callable
 from logging import Logger, getLogger
 from typing import Any

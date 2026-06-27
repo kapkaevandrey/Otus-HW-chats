@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import logging
 import ssl
@@ -13,8 +15,6 @@ from app.apps.consumers import UserConsumer
 from app.config import app_settings, kafka_settings
 from app.core.clients.kafka import CUDMessageValue
 from app.core.containers import get_context
-from app.core.enums import EventTypes
-from app.core.services.tasks import processing_events_outbox_task
 from app.core.utils import restart_on_exception, run_tasks, shutdown
 from app.logging_config import configure_logging
 from app.schemas.services import UserInboxData
@@ -84,19 +84,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
         schema=CUDMessageValue[UserInboxData],
     )
 
-    processing_event_task = restart_on_exception(
-        processing_events_outbox_task,
-        run_params={
-            "context": context,
-            "service_name": app_settings.SERVICE_NAME,
-            "topics_map": {EventTypes.SEND_NEW_POST_FOR_FRIENDS: kafka_settings.WS_SEND_MESSAGES_TOPIC},
-        },
-    )
     await context.start_clients()
-    tasks = [
-        restart_on_exception(user_consumer.run),
-        processing_event_task,
-    ]
+    tasks = [restart_on_exception(user_consumer.run)]
     run_tasks(tasks)
     yield
     await context.stop_clients()

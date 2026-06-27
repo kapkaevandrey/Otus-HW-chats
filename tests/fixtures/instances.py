@@ -1,7 +1,6 @@
 import datetime as dt
 from uuid import uuid4
 
-import bcrypt
 import pytest
 
 from app.core.repositories import UnitOfWork
@@ -9,45 +8,42 @@ from app.schemas.dto import UserCreateSchema, UserDto
 
 
 @pytest.fixture
-def user_one_real_password():
-    return "RobocopDetroit1,"
+async def user_one(context) -> UserDto:
+    async with context.uow.transaction() as uow:
+        return await uow.user_repo.add(
+            UserCreateSchema(
+                id=uuid4(),
+                first_name="Alex",
+                second_name="Murphy",
+                biography="Cop",
+                birthdate=dt.date(1990, 1, 1),
+            )
+        )
 
 
 @pytest.fixture
-async def user_one(context, user_one_real_password) -> UserDto:
-    return await context.uow.user_repo.add(
-        UserCreateSchema(
-            first_name="Alex",
-            second_name="Murphy",
-            biography="Cop",
-            birthdate=dt.date(1990, 1, 1),
-            password=(bcrypt.hashpw(user_one_real_password.encode(), bcrypt.gensalt())).decode(),
+async def user_two(context) -> UserDto:
+    async with context.uow.transaction() as uow:
+        return await uow.user_repo.add(
+            UserCreateSchema(
+                id=uuid4(),
+                first_name="Bruce",
+                second_name="Wayne",
+                biography="Bat",
+                birthdate=dt.date(1987, 1, 1),
+            )
         )
-    )
-
-
-@pytest.fixture
-async def user_two(context, user_one_real_password) -> UserDto:
-    return await context.uow.user_repo.add(
-        UserCreateSchema(
-            first_name="Bruce",
-            second_name="Wayne",
-            biography="Bat",
-            birthdate=dt.date(1987, 1, 1),
-            password=(bcrypt.hashpw(user_one_real_password.encode(), bcrypt.gensalt())).decode(),
-        )
-    )
 
 
 @pytest.fixture
 async def generate_user():
-    async def generator(uow: UnitOfWork, amount) -> list[UserDto]:
+    async def generator(uow: UnitOfWork, amount: int) -> list[UserDto]:
         data = [
             UserCreateSchema(
+                id=uuid4(),
                 first_name=uuid4().hex,
                 second_name=uuid4().hex,
                 birthdate=dt.date(1987, 1, 1),
-                password=uuid4().hex,
             )
             for _ in range(amount)
         ]

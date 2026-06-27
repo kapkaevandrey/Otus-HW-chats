@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+from functools import cached_property
 from pathlib import Path
 from typing import Literal
 
@@ -15,9 +18,9 @@ class EmptyBaseSettings(BaseSettings):
 
 
 class AppSettings(EmptyBaseSettings):
-    SERVICE_NAME: str = "otus-social"
+    SERVICE_NAME: str = "otus-chats"
     ROOT_PATH: str = ""
-    SERVICE_DESCRIPTION: str = "Otus Homework for social network"
+    SERVICE_DESCRIPTION: str = "Otus chat service for direct dialogs"
     STAND: str = "dev"
     DEBUG: bool = False
     LOG_LEVEL: str = "INFO"
@@ -55,39 +58,72 @@ class RedisSettings(EmptyBaseSettings):
 
 class KafkaSettings(EmptyBaseSettings):
     KAFKA_BROKERS: str = "kafka:9093"
-    KAFKA_GROUP_ID: str = "otus"
+    KAFKA_GROUP_ID: str = "otus-chats"
     KAFKA_SECURITY_PROTOCOL: str = "PLAINTEXT"
     KAFKA_SASL_MECHANISM: str = "PLAIN"
     KAFKA_SASL_PLAIN_USERNAME: str | None = None
     KAFKA_SASL_PLAIN_PASSWORD: str | None = None
     KAFKA_MAX_REQUEST_SIZE_BYTES: int = 1 * 1024 * 1024
-    KAFKA_MAX_POOL_INTERVAL: int = 30000  # 0.5 min
+    KAFKA_MAX_POOL_INTERVAL: int = 30000
 
     KAFKA_CUD_USER_EVENT_TOPIC: str = "cud.user"
 
 
 class DbSettings(EmptyBaseSettings):
     DB_DRIVER: str = "postgresql+asyncpg"
-    DB_HOST: str = "db"
-    DB_PORT: int = 5432
-    DB_USER: str = "postgres"
-    DB_PASSWORD: str = "app_pswd"
+    DB_MASTER_HOST: str = "db"
+    DB_MASTER_PORT: int = 5432
+    DB_MASTER_USER: str = "postgres"
+    DB_MASTER_PASSWORD: str = "app_pswd"
     DB_DATABASE: str = "chats"
+    DB_ECHO: bool = False
+    DB_ENABLE_PG_BOUNCER: bool = False
+    DB_REPLICAS: str = ""
 
-    DB_POOL_SIZE: int = 15  # pool
+    DB_POOL_SIZE: int = 15
     DB_MAX_OVERFLOW: int = 5
     DB_TIMEOUT: float = 30.0
-    DB_ECHO: bool = False
     DB_POOL_RECYCLE: int = 3600
-    DB_ENABLE_PG_BOUNCER: bool = False
 
     @property
-    def db_dsn(self) -> URL:
-        return URL.create(self.DB_DRIVER, self.DB_USER, self.DB_PASSWORD, self.DB_HOST, self.DB_PORT, self.DB_DATABASE)
+    def db_dsn_master(self) -> URL:
+        return URL.create(
+            self.DB_DRIVER,
+            self.DB_MASTER_USER,
+            self.DB_MASTER_PASSWORD,
+            self.DB_MASTER_HOST,
+            self.DB_MASTER_PORT,
+            self.DB_DATABASE,
+        )
 
     @property
-    def db_url(self) -> URL:
-        return URL.create(self.DB_DRIVER, self.DB_USER, self.DB_PASSWORD, self.DB_HOST, self.DB_PORT)
+    def db_master_url(self) -> URL:
+        return URL.create(
+            self.DB_DRIVER,
+            self.DB_MASTER_USER,
+            self.DB_MASTER_PASSWORD,
+            self.DB_MASTER_HOST,
+            self.DB_MASTER_PORT,
+        )
+
+    @cached_property
+    def db_replicas_dsns(self) -> list[URL]:
+        if not self.DB_REPLICAS:
+            return []
+        result: list[URL] = []
+        for replica in self.DB_REPLICAS.split(","):
+            host, port = replica.split(":")
+            result.append(
+                URL.create(
+                    self.DB_DRIVER,
+                    self.DB_MASTER_USER,
+                    self.DB_MASTER_PASSWORD,
+                    host,
+                    int(port),
+                    self.DB_DATABASE,
+                )
+            )
+        return result
 
 
 app_settings = AppSettings()

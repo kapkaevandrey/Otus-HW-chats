@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from http import HTTPStatus
 from string import ascii_letters, ascii_uppercase, digits
 from typing import Any

@@ -1,7 +1,7 @@
 [project]
-name = "otus-social-network"
+name = "otus-chats"
 version = "0.1.0"
-description = "Social network homework"
+description = "Otus chat service for direct dialogs"
 requires-python = ">=3.13"
 dependencies = [
     "aiokafka>=0.14.0",
@@ -57,29 +57,27 @@ exclude = [
 
 [tool.ruff.lint]
 select = [
-    "E", # pycodestyle
-    "F", # pyflakes
-    "I", # isort (сортировка импортов)
-    "N", # pep8-naming
-    "UP", # pyupgrade
-    "B", # bugbear
-    "C4", # comprehensions
-    "SIM", # simplify
-    "TID", # tidy imports
+    "E",
+    "F",
+    "I",
+    "N",
+    "UP",
+    "B",
+    "C4",
+    "SIM",
+    "TID",
 ]
 ignore = [
     "D100", "D101", "D102", "D103"
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"app/apps/api/**/*.py" = ["B008"] # Для игнорирования тайпинга context: Context = Depends(get_context)
-"app/apps/ws/**/*.py" = ["B008"] # Для игнорирования тайпинга context: Context = Depends(get_context)
+"app/apps/api/**/*.py" = ["B008"]
 
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
-
 
 [tool.ruff.lint.isort]
 combine-as-imports = true

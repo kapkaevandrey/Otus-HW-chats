@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from logging import Logger, getLogger
 
 from app.config import app_settings, auth_settings, db_settings, kafka_settings, redis_settings
