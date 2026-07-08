@@ -12,6 +12,7 @@ from app.exceptions import BaseServiceError
 from app.schemas.dto import (
     ConversationCreateSchema,
     ConversationDto,
+    DialogReadOutboxEventSchema,
     MessageCreateSchema,
     MessageDto,
     MessageSentOutboxEventSchema,
@@ -43,6 +44,19 @@ class DialogUtils(ServiceUtils):
             conversation_id=create_data.conversation_id,
             message_id=create_data.id,
             sent_at=create_data.sent_at,
+        )
+
+    def build_dialog_read_outbox_event(
+        self,
+        *,
+        user_id: UUID,
+        peer_id: UUID,
+        conversation_id: UUID,
+    ) -> DialogReadOutboxEventSchema:
+        return DialogReadOutboxEventSchema(
+            user_id=user_id,
+            peer_id=peer_id,
+            conversation_id=conversation_id,
         )
 
     def check_message_data(self, data: SendMessageServiceSchema) -> None:
@@ -173,9 +187,16 @@ class DialogUtils(ServiceUtils):
             redis_client=redis_client,
         )
         messages_key = self.CONVERSATION_MESSAGES.format(conversation_id=conversation.id)
+        outbox_event = self.build_dialog_read_outbox_event(
+            user_id=user_first,
+            peer_id=user_second,
+            conversation_id=conversation.id,
+        )
         raw_messages = await redis_client.get_dialog_with_users(
             messages_key=messages_key,
             message_key_prefix=self.MESSAGE_KEY_PREFIX,
+            outbox_stream_key=self.DIALOG_OUTBOX_STREAM,
+            outbox_event_json=outbox_event.model_dump_json(),
             offset=0,
             limit=1000,
             order="desc",

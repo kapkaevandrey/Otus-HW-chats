@@ -1,14 +1,20 @@
-from __future__ import annotations
-
-from .base import KafkaActionConsumer, KafkaConsumer
-from .exceptions import ImproperlyConfiguratedError, RetriesExceededError
-from .schemas import CUDMessageValue
+from .consumer import (
+    ConsumerImproperlyConfigurationError,
+    ConsumerRetriesExceededError,
+    CUDMessageValue,
+    KafkaActionConsumer,
+    KafkaConsumer,
+)
+from .producer import KafkaProducerAbstract, KafkaProducerAIO, SendMessageToKafkaError
 
 
 __all__ = [
     "KafkaActionConsumer",
     "KafkaConsumer",
-    "ImproperlyConfiguratedError",
-    "RetriesExceededError",
+    "ConsumerImproperlyConfigurationError",
+    "ConsumerRetriesExceededError",
     "CUDMessageValue",
+    "KafkaProducerAIO",
+    "KafkaProducerAbstract",
+    "SendMessageToKafkaError",
 ]

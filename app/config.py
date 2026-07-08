@@ -53,6 +53,12 @@ class RedisSettings(EmptyBaseSettings):
     REDIS_RETRY_ON_TIMEOUT: bool = True
     REDIS_DEFAULT_SETTINGS_TTL: int = 24 * 60 * 60
     REDIS_DIALOG_OUTBOX_STREAM: str = "outbox:dialog.events"
+    REDIS_DIALOG_OUTBOX_CONSUMER_GROUP: str = "dialog-outbox-relay"
+    REDIS_DIALOG_OUTBOX_CONSUMER_NAME: str | None = None
+    REDIS_DIALOG_OUTBOX_RECLAIM_IDLE_MS: int = 60_000
+    REDIS_DIALOG_OUTBOX_READ_COUNT: int = 10
+    REDIS_DIALOG_OUTBOX_BLOCK_MS: int = 5_000
+    REDIS_DIALOG_OUTBOX_RELAY_SENT_TTL_SEC: int = 24 * 60 * 60
 
 
 class KafkaSettings(EmptyBaseSettings):
@@ -66,6 +72,7 @@ class KafkaSettings(EmptyBaseSettings):
     KAFKA_MAX_POOL_INTERVAL: int = 30000
 
     KAFKA_CUD_USER_EVENT_TOPIC: str = "cud.user"
+    KAFKA_DIALOG_EVENTS_TOPIC: str = "social.dialog.messages"
 
 
 class DbSettings(EmptyBaseSettings):

@@ -9,9 +9,8 @@ from aiokafka import AIOKafkaConsumer
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.apps.api import main_router
+from app.apps.api import RequestIdMiddleware, main_router
 from app.apps.consumers import UserConsumer
-from app.apps.middleware.request_id import RequestIdMiddleware
 from app.config import app_settings, kafka_settings
 from app.core.clients.kafka import CUDMessageValue
 from app.core.containers import get_context

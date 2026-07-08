@@ -23,3 +23,4 @@ class Tables(StrEnum):
 
 class DialogEventType(StrEnum):
     MESSAGE_SENT = "message.sent"
+    DIALOG_READ = "dialog.read"

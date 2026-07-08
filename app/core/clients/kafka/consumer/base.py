@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -8,7 +6,7 @@ from typing import Any
 from aiokafka import AIOKafkaConsumer, ConsumerRecord
 from pydantic import PositiveInt
 
-from .exceptions import ImproperlyConfiguratedError, RetriesExceededError
+from .exceptions import ConsumerImproperlyConfigurationError, ConsumerRetriesExceededError
 from .schemas import CUDMessageValue
 
 
@@ -35,7 +33,7 @@ class KafkaConsumer:
             ImproperlyConfiguratedError: raises if process_retries  is not positive integer
         """
         if not (isinstance(process_retries, int) and process_retries > 0):
-            raise ImproperlyConfiguratedError("'process_retries' must be positive integer")
+            raise ConsumerImproperlyConfigurationError("'process_retries' must be positive integer")
 
         self.consumer_class = consumer_class
         self.consumer_args = consumer_args
@@ -105,7 +103,7 @@ class KafkaConsumer:
                     except Exception:
                         self.logger.exception(f"{self.__class__.__name__}: Error while processing message {msg.value}")
                 else:
-                    raise RetriesExceededError(
+                    raise ConsumerRetriesExceededError(
                         f"{self.__class__.__name__}: Number of retires exceeded ({self._process_retries})"
                     )
                 await self.consumer.commit()  # type: ignore

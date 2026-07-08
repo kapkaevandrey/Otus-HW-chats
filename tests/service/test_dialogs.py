@@ -2,9 +2,15 @@ import datetime as dt
 import random as rnd
 from uuid import uuid4
 
-from app.core.enums import ConversationTypes
+from app.core.enums import ConversationTypes, DialogEventType
 from app.core.services import DialogService, DialogUtils, UserUtils
-from app.schemas.dto import ConversationCreateSchema, ConversationDto, MessageCreateSchema, MessageSentOutboxEventSchema
+from app.schemas.dto import (
+    ConversationCreateSchema,
+    ConversationDto,
+    DialogReadOutboxEventSchema,
+    MessageCreateSchema,
+    MessageSentOutboxEventSchema,
+)
 from app.schemas.services import SendMessageServiceResponse, SendMessageServiceSchema
 from app.schemas.services.dialogs import DirectMessagesItem
 
@@ -13,12 +19,19 @@ def _decode_redis_value(value: bytes | str) -> str:
     return value.decode("utf-8") if isinstance(value, bytes) else str(value)
 
 
-async def _get_outbox_events(redis, stream_key: str) -> list[MessageSentOutboxEventSchema]:
+async def _get_outbox_events(
+    redis,
+    stream_key: str,
+) -> list[MessageSentOutboxEventSchema | DialogReadOutboxEventSchema]:
     entries = await redis.xrange(stream_key, "-", "+")
-    events: list[MessageSentOutboxEventSchema] = []
+    events: list[MessageSentOutboxEventSchema | DialogReadOutboxEventSchema] = []
     for _, fields in entries:
         payload_key = b"payload" if b"payload" in fields else "payload"
-        events.append(MessageSentOutboxEventSchema.model_validate_json(_decode_redis_value(fields[payload_key])))
+        payload = _decode_redis_value(fields[payload_key])
+        if DialogEventType.MESSAGE_SENT in payload:
+            events.append(MessageSentOutboxEventSchema.model_validate_json(payload))
+        else:
+            events.append(DialogReadOutboxEventSchema.model_validate_json(payload))
     return events
 
 
@@ -84,6 +97,7 @@ async def test_send_message_to_user_new_conversation(
 
     outbox_events = await _get_outbox_events(redis, utils.DIALOG_OUTBOX_STREAM)
     assert len(outbox_events) == 1
+    assert isinstance(outbox_events[0], MessageSentOutboxEventSchema)
     assert outbox_events[0] == MessageSentOutboxEventSchema(
         event_id=outbox_events[0].event_id,
         recipient_id=user_two.id,
@@ -117,7 +131,8 @@ async def test_send_message_to_user_conversation_exists(
 
     outbox_events = await _get_outbox_events(redis, utils.DIALOG_OUTBOX_STREAM)
     assert len(outbox_events) == 2
-    assert {event.message_id for event in outbox_events} == {first.result.message_id, second.result.message_id}
+    message_sent_events = [event for event in outbox_events if isinstance(event, MessageSentOutboxEventSchema)]
+    assert {event.message_id for event in message_sent_events} == {first.result.message_id, second.result.message_id}
 
 
 async def test_send_message_to_user_conversation_exists_one_participant_exist(
@@ -169,12 +184,17 @@ async def test_get_users_dialogs_conversation_not_found(
     user_two,
     context,
 ):
+    utils = DialogUtils()
+    redis = context.redis_client
     service = DialogService(context)
     service_response = await service.get_dialog_with_users(
         user_first=user_one.id,
         user_second=user_two.id,
     )
     assert service_response.is_success is False
+
+    outbox_events = await _get_outbox_events(redis, utils.DIALOG_OUTBOX_STREAM)
+    assert outbox_events == []
 
 
 async def test_get_users_dialog(
@@ -216,3 +236,44 @@ async def test_get_users_dialog(
     )
     assert service_response.is_success is True
     assert service_response.result == expected
+
+    outbox_events = await _get_outbox_events(redis, utils.DIALOG_OUTBOX_STREAM)
+    assert len(outbox_events) == 1
+    assert isinstance(outbox_events[0], DialogReadOutboxEventSchema)
+    assert outbox_events[0] == DialogReadOutboxEventSchema(
+        event_id=outbox_events[0].event_id,
+        user_id=user_one.id,
+        peer_id=user_two.id,
+        conversation_id=conversation.id,
+        read_at=outbox_events[0].read_at,
+    )
+
+
+async def test_get_users_empty_dialog_emits_dialog_read(
+    user_one,
+    user_two,
+    context,
+):
+    utils = DialogUtils()
+    redis = context.redis_client
+    conversation = await utils.get_or_create_direct_conversation(
+        sender=user_one.id,
+        receiver=user_two.id,
+        redis_client=redis,
+    )
+
+    service = DialogService(context)
+    service_response = await service.get_dialog_with_users(
+        user_first=user_one.id,
+        user_second=user_two.id,
+    )
+
+    assert service_response.is_success is True
+    assert service_response.result == []
+
+    outbox_events = await _get_outbox_events(redis, utils.DIALOG_OUTBOX_STREAM)
+    assert len(outbox_events) == 1
+    assert isinstance(outbox_events[0], DialogReadOutboxEventSchema)
+    assert outbox_events[0].user_id == user_one.id
+    assert outbox_events[0].peer_id == user_two.id
+    assert outbox_events[0].conversation_id == conversation.id

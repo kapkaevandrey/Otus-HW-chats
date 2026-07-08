@@ -1,9 +1,7 @@
-from __future__ import annotations
-
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from app.apps.middleware.request_id import RequestIdMiddleware
+from app.apps.api import RequestIdMiddleware
 from app.core.request_context import REQUEST_ID_HEADER
 
 

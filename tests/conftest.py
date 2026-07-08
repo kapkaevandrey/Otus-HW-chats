@@ -18,7 +18,7 @@ from app.core.containers.context import Context, get_context
 from app.server import app
 
 
-pytest_plugins = ["tests.fixtures.instances"]
+pytest_plugins = ["tests.fixtures.instances", "tests.fixtures.mock_objects"]
 
 
 TEST_DB_NAME = "_test_db"
@@ -117,10 +117,11 @@ def async_session_maker() -> async_sessionmaker[AsyncSession]:
 
 
 @pytest.fixture()
-async def context(db_client: SQLAlchemyAsyncPgClient, redis_client) -> Context:
+async def context(db_client: SQLAlchemyAsyncPgClient, redis_client, kafka_producer_mock_client) -> Context:
     return Context(
         db_client=db_client,
         redis_client=redis_client,
+        kafka_producer=kafka_producer_mock_client,
         cfg=AppConfig(
             app=app_settings,
             redis=redis_settings,

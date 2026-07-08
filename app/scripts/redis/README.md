@@ -45,11 +45,29 @@ Array with:
 
 ## `get_dialog_with_users.lua`
 
-Reads dialog messages for one conversation from Redis.
+Reads dialog messages for one conversation from Redis and appends `dialog.read` into the outbox stream atomically.
 
-- Takes:
-  - `messages:{conversation_id}` key
-  - `message:` key prefix
-  - pagination params (`offset`, `limit`) and `order`
-- Reads message ids from `ZSET`, then fetches payloads via one `MGET`.
-- Returns array of message JSON strings in requested order.
+## What it does
+
+1. Reads message ids from `ZSET` using pagination params (`offset`, `limit`) and `order`.
+2. Fetches message payloads via one `MGET` when ids exist.
+3. Appends `dialog.read` outbox event via `XADD` even for an empty dialog.
+
+Steps 1-3 run atomically inside one Lua script.
+
+## KEYS
+
+1. `messages_key` - `messages:{conversation_id}`
+2. `message_key_prefix` - `message:`
+3. `outbox_stream_key` - `outbox:dialog.events`
+
+## ARGV
+
+1. `offset`
+2. `limit`
+3. `order` - `desc` or `asc`
+4. `outbox_event_json` - serialized `DialogReadOutboxEventSchema`
+
+## Return value
+
+Array of message JSON strings in requested order.

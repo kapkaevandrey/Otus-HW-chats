@@ -71,14 +71,16 @@ class RedisClient(Redis):
         *,
         messages_key: str,
         message_key_prefix: str,
+        outbox_stream_key: str,
+        outbox_event_json: str,
         offset: int = 0,
         limit: int = 1000,
         order: str = "desc",
     ) -> list[Any]:
         return await self._eval_dialog_script(
             name="get_dialog_with_users",
-            keys=[messages_key, message_key_prefix],
-            args=[str(offset), str(limit), order],
+            keys=[messages_key, message_key_prefix, outbox_stream_key],
+            args=[str(offset), str(limit), order, outbox_event_json],
         )
 
     async def _eval_dialog_script(self, *, name: str, keys: list[str], args: list[str]) -> list[Any]:

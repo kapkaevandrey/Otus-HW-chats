@@ -8,7 +8,7 @@ from .conversation import (
     ConversationParticipantsUpdateSchema,
     ConversationUpdateSchema,
 )
-from .dialog_outbox import MessageSentOutboxEventSchema
+from .dialog_outbox import DialogReadOutboxEventSchema, MessageSentOutboxEventSchema
 from .messages import MessageCreateSchema, MessageDto, MessageUpdateSchema
 from .user import (
     UserCreateSchema,
@@ -31,4 +31,5 @@ __all__ = [
     "MessageUpdateSchema",
     "MessageCreateSchema",
     "MessageSentOutboxEventSchema",
+    "DialogReadOutboxEventSchema",
 ]
