@@ -43,16 +43,18 @@ class RedisClient(Redis):
         participants_key: str,
         messages_key: str,
         message_key: str,
+        outbox_stream_key: str,
         conversation_json_candidate: str,
         sender_id: str,
         receiver_id: str,
         message_member: str,
         message_json: str,
         sent_at_score: float,
+        outbox_event_json: str,
     ) -> list[Any]:
         return await self._eval_dialog_script(
             name="send_message_to_user",
-            keys=[direct_conversation_key, participants_key, messages_key, message_key],
+            keys=[direct_conversation_key, participants_key, messages_key, message_key, outbox_stream_key],
             args=[
                 conversation_json_candidate,
                 sender_id,
@@ -60,6 +62,7 @@ class RedisClient(Redis):
                 message_member,
                 str(sent_at_score),
                 message_json,
+                outbox_event_json,
             ],
         )
 

@@ -19,3 +19,7 @@ class ConversationTypes(StrEnum):
 
 class Tables(StrEnum):
     users = "users"
+
+
+class DialogEventType(StrEnum):
+    MESSAGE_SENT = "message.sent"

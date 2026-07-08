@@ -10,6 +10,9 @@ This script implements the `send_message_to_user` domain operation in one Redis-
 2. Adds sender and receiver to the participants set.
 3. Adds message id into the conversation sorted set by `sent_at` score.
 4. Stores the message payload by `message:{id}` key.
+5. Appends a domain event into the Redis Stream outbox (`XADD`).
+
+Steps 1-5 run atomically inside one Lua script.
 
 The script does not compute business values itself; it only uses keys and values passed from application code.
 
@@ -19,6 +22,7 @@ The script does not compute business values itself; it only uses keys and values
 2. `participants_key` - `participants:{conversation_id}`
 3. `messages_key` - `messages:{conversation_id}`
 4. `message_key` - `message:{message_id}`
+5. `outbox_stream_key` - `outbox:dialog.events`
 
 ## ARGV
 
@@ -28,6 +32,7 @@ The script does not compute business values itself; it only uses keys and values
 4. `message_member` - message id placed into `ZSET`
 5. `sent_at_score` - timestamp score for `ZADD`
 6. `message_json` - serialized `MessageCreateSchema`
+7. `outbox_event_json` - serialized `MessageSentOutboxEventSchema`
 
 ## Return value
 
@@ -36,6 +41,7 @@ Array with:
 1. `final_conversation_json`
 2. `added_participants_count`
 3. `zadd_result`
+4. `outbox_entry_id`
 
 ## `get_dialog_with_users.lua`
 

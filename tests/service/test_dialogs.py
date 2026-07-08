@@ -4,9 +4,22 @@ from uuid import uuid4
 
 from app.core.enums import ConversationTypes
 from app.core.services import DialogService, DialogUtils, UserUtils
-from app.schemas.dto import ConversationCreateSchema, ConversationDto, MessageCreateSchema
+from app.schemas.dto import ConversationCreateSchema, ConversationDto, MessageCreateSchema, MessageSentOutboxEventSchema
 from app.schemas.services import SendMessageServiceResponse, SendMessageServiceSchema
 from app.schemas.services.dialogs import DirectMessagesItem
+
+
+def _decode_redis_value(value: bytes | str) -> str:
+    return value.decode("utf-8") if isinstance(value, bytes) else str(value)
+
+
+async def _get_outbox_events(redis, stream_key: str) -> list[MessageSentOutboxEventSchema]:
+    entries = await redis.xrange(stream_key, "-", "+")
+    events: list[MessageSentOutboxEventSchema] = []
+    for _, fields in entries:
+        payload_key = b"payload" if b"payload" in fields else "payload"
+        events.append(MessageSentOutboxEventSchema.model_validate_json(_decode_redis_value(fields[payload_key])))
+    return events
 
 
 async def test_send_message_to_self(
@@ -69,6 +82,17 @@ async def test_send_message_to_user_new_conversation(
         sender_id=user_one.id,
     )
 
+    outbox_events = await _get_outbox_events(redis, utils.DIALOG_OUTBOX_STREAM)
+    assert len(outbox_events) == 1
+    assert outbox_events[0] == MessageSentOutboxEventSchema(
+        event_id=outbox_events[0].event_id,
+        recipient_id=user_two.id,
+        sender_id=user_one.id,
+        conversation_id=conv_dto.id,
+        message_id=msg_dto.id,
+        sent_at=msg_dto.sent_at,
+    )
+
 
 async def test_send_message_to_user_conversation_exists(
     user_one,
@@ -90,6 +114,10 @@ async def test_send_message_to_user_conversation_exists(
 
     messages_key = utils.CONVERSATION_MESSAGES.format(conversation_id=first.result.conversation_id)
     assert await redis.zcard(messages_key) == 2
+
+    outbox_events = await _get_outbox_events(redis, utils.DIALOG_OUTBOX_STREAM)
+    assert len(outbox_events) == 2
+    assert {event.message_id for event in outbox_events} == {first.result.message_id, second.result.message_id}
 
 
 async def test_send_message_to_user_conversation_exists_one_participant_exist(

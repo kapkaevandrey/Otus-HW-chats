@@ -52,6 +52,7 @@ class RedisSettings(EmptyBaseSettings):
     REDIS_HEALTH_CHECK_INTERVAL: int = 30
     REDIS_RETRY_ON_TIMEOUT: bool = True
     REDIS_DEFAULT_SETTINGS_TTL: int = 24 * 60 * 60
+    REDIS_DIALOG_OUTBOX_STREAM: str = "outbox:dialog.events"
 
 
 class KafkaSettings(EmptyBaseSettings):

@@ -4,11 +4,18 @@ import datetime as dt
 from http import HTTPStatus
 from uuid import UUID, uuid4
 
+from app.config import redis_settings
 from app.core.clients import RedisClient
 from app.core.enums import ConversationTypes
 from app.core.services.utils import ServiceUtils
 from app.exceptions import BaseServiceError
-from app.schemas.dto import ConversationCreateSchema, ConversationDto, MessageCreateSchema, MessageDto
+from app.schemas.dto import (
+    ConversationCreateSchema,
+    ConversationDto,
+    MessageCreateSchema,
+    MessageDto,
+    MessageSentOutboxEventSchema,
+)
 from app.schemas.services import SendMessageServiceSchema
 from app.schemas.services.dialogs import DirectMessagesItem
 
@@ -21,6 +28,22 @@ class DialogUtils(ServiceUtils):
     DIRECT_CONVERSATION_KEY = "direct:conversation:{low_id}:{high_id}"
     MESSAGE_KEY = "message:{message_id}"
     MESSAGE_KEY_PREFIX = "message:"
+    DIALOG_OUTBOX_STREAM = redis_settings.REDIS_DIALOG_OUTBOX_STREAM
+
+    def build_message_sent_outbox_event(
+        self,
+        *,
+        create_data: MessageCreateSchema,
+        sender: UUID,
+        receiver: UUID,
+    ) -> MessageSentOutboxEventSchema:
+        return MessageSentOutboxEventSchema(
+            recipient_id=receiver,
+            sender_id=sender,
+            conversation_id=create_data.conversation_id,
+            message_id=create_data.id,
+            sent_at=create_data.sent_at,
+        )
 
     def check_message_data(self, data: SendMessageServiceSchema) -> None:
         if data.user_sender == data.user_receiver:
@@ -83,17 +106,24 @@ class DialogUtils(ServiceUtils):
         participants_key = self.PARTICIPANTS_CONVERSATION_REDIS_KEY.format(conversation_id=conversation.id)
         messages_key = self.CONVERSATION_MESSAGES.format(conversation_id=conversation.id)
         message_key = self.MESSAGE_KEY.format(message_id=create_data.id)
+        outbox_event = self.build_message_sent_outbox_event(
+            create_data=create_data,
+            sender=sender,
+            receiver=receiver,
+        )
         raw = await redis_client.send_message_to_user(
             direct_conversation_key=direct_conversation_key,
             participants_key=participants_key,
             messages_key=messages_key,
             message_key=message_key,
+            outbox_stream_key=self.DIALOG_OUTBOX_STREAM,
             conversation_json_candidate=conversation.model_dump_json(),
             sender_id=str(sender),
             receiver_id=str(receiver),
             message_member=str(create_data.id),
             sent_at_score=create_data.sent_at.timestamp(),
             message_json=create_data.model_dump_json(),
+            outbox_event_json=outbox_event.model_dump_json(),
         )
         if len(raw) < 1:
             raise BaseServiceError(status=HTTPStatus.INTERNAL_SERVER_ERROR, error_message="Unexpected script response")
