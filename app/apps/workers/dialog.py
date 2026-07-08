@@ -4,7 +4,7 @@ import json
 import logging
 import os
 import socket
-from typing import Any
+from typing import Any, cast
 
 from redis.exceptions import ResponseError
 
@@ -13,6 +13,7 @@ from app.core.containers import Context
 
 class DialogOutboxRelayWorker:
     RELAY_SENT_KEY_PREFIX = "relay:sent:"
+    _StreamEntries = list[tuple[str, dict[Any, Any]]]
 
     def __init__(self, context: Context, logger: logging.Logger | None = None) -> None:
         self.context = context
@@ -52,7 +53,7 @@ class DialogOutboxRelayWorker:
             start_id="0-0",
             count=self._read_count,
         )
-        await self._publish_entries(entries)
+        await self._publish_entries(cast(DialogOutboxRelayWorker._StreamEntries, entries))
 
     async def _read_new_and_publish(self) -> None:
         response = await self.context.redis_client.xreadgroup(
@@ -65,38 +66,35 @@ class DialogOutboxRelayWorker:
         if not response:
             return
 
-        for _, entries in response:
-            await self._publish_entries(entries)
+        for stream_chunk in cast(list[tuple[str, DialogOutboxRelayWorker._StreamEntries]], response):
+            await self._publish_entries(stream_chunk[1])
 
     async def _publish_entries(self, entries: list[tuple[str, dict[Any, Any]]]) -> None:
         for entry_id, fields in entries:
-            await self._publish_entry(entry_id, fields)
+            payload = self._extract_payload(fields)
+            event = json.loads(payload)
+            event_id = str(event["event_id"])
+            relay_sent_key = f"{self.RELAY_SENT_KEY_PREFIX}{event_id}"
 
-    async def _publish_entry(self, entry_id: str, fields: dict[Any, Any]) -> None:
-        payload = self._extract_payload(fields)
-        event = json.loads(payload)
-        event_id = str(event["event_id"])
-        relay_sent_key = f"{self.RELAY_SENT_KEY_PREFIX}{event_id}"
+            if await self.context.redis_client.exists(relay_sent_key):
+                await self.context.redis_client.xack(self._stream_name, self._consumer_group, entry_id)
+                self.logger.debug("Skip duplicate relay for event_id=%s entry_id=%s", event_id, entry_id)
+                continue
 
-        if await self.context.redis_client.exists(relay_sent_key):
+            await self.context.kafka_producer.send_message(
+                key=event_id,
+                value=event,
+                topic=self._topic_name,
+                wait_acc=True,
+            )
+            await self.context.redis_client.set(relay_sent_key, "1", ex=self._relay_sent_ttl_sec)
             await self.context.redis_client.xack(self._stream_name, self._consumer_group, entry_id)
-            self.logger.debug("Skip duplicate relay for event_id=%s entry_id=%s", event_id, entry_id)
-            return
-
-        await self.context.kafka_producer.send_message(
-            key=event_id,
-            value=event,
-            topic=self._topic_name,
-            wait_acc=True,
-        )
-        await self.context.redis_client.set(relay_sent_key, "1", ex=self._relay_sent_ttl_sec)
-        await self.context.redis_client.xack(self._stream_name, self._consumer_group, entry_id)
-        self.logger.info(
-            "Relayed outbox event event_id=%s entry_id=%s to topic=%s",
-            event_id,
-            entry_id,
-            self._topic_name,
-        )
+            self.logger.info(
+                "Relayed outbox event event_id=%s entry_id=%s to topic=%s",
+                event_id,
+                entry_id,
+                self._topic_name,
+            )
 
     @property
     def _stream_name(self) -> str:

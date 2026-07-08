@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.apps.api import RequestIdMiddleware, main_router
 from app.apps.consumers import UserConsumer
+from app.apps.workers import DialogOutboxRelayWorker
 from app.config import app_settings, kafka_settings
 from app.core.clients.kafka import CUDMessageValue
 from app.core.containers import get_context
@@ -84,9 +85,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
         logger=logger,
         schema=CUDMessageValue[UserInboxData],
     )
+    dialog_outbox_relay = DialogOutboxRelayWorker(context=context, logger=logger)
 
     await context.start_clients()
-    tasks = [restart_on_exception(user_consumer.run)]
+    tasks = [
+        restart_on_exception(user_consumer.run),
+        restart_on_exception(dialog_outbox_relay.run),
+    ]
     run_tasks(tasks)
     yield
     await context.stop_clients()
