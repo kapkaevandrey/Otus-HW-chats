@@ -4,7 +4,7 @@ from uuid import uuid4
 from app.apps.workers import DialogOutboxRelayWorker
 from app.config import kafka_settings, redis_settings
 from app.core.enums import DialogEventType
-from app.schemas.dto import MessageSentOutboxEventSchema
+from app.schemas.dto import DialogReadOutboxEventSchema, MessageSentOutboxEventSchema
 
 
 async def _create_consumer_group(redis, stream_name: str, group_name: str) -> None:
@@ -38,7 +38,7 @@ async def test_dialog_outbox_relay_publishes_event_and_acks(context, kafka_produ
 
     assert len(kafka_producer_mock_client.messages[topic_name]) == 1
     key, value = kafka_producer_mock_client.messages[topic_name][0]
-    assert key == str(event.event_id).encode()
+    assert key == str(event.recipient_id).encode()
     assert value["type"] == DialogEventType.MESSAGE_SENT
     assert value["event_id"] == str(event.event_id)
 
@@ -92,3 +92,25 @@ async def test_dialog_outbox_relay_skips_duplicate_kafka_publish_on_reclaim(
 
     pending = await redis.xpending_range(stream_name, group_name, "-", "+", 10)
     assert pending == []
+
+
+def test_counter_owner_partition_key_matches_for_sent_and_read():
+    user_b = uuid4()
+    user_a = uuid4()
+
+    sent_event = MessageSentOutboxEventSchema(
+        recipient_id=user_b,
+        sender_id=user_a,
+        conversation_id=uuid4(),
+        message_id=uuid4(),
+    ).model_dump(mode="json")
+    read_event = DialogReadOutboxEventSchema(
+        user_id=user_b,
+        peer_id=user_a,
+        conversation_id=sent_event["conversation_id"],
+    ).model_dump(mode="json")
+
+    sent_key = DialogOutboxRelayWorker._counter_owner_id(sent_event)
+    read_key = DialogOutboxRelayWorker._counter_owner_id(read_event)
+
+    assert sent_key == read_key == str(user_b)

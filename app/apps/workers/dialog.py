@@ -82,7 +82,7 @@ class DialogOutboxRelayWorker:
                 continue
 
             await self.context.kafka_producer.send_message(
-                key=event_id,
+                key=self._kafka_partition_key(event),
                 value=event,
                 topic=self._topic_name,
                 wait_acc=True,
@@ -129,6 +129,27 @@ class DialogOutboxRelayWorker:
     @property
     def _relay_sent_ttl_sec(self) -> int:
         return self.context.cfg.redis.REDIS_DIALOG_OUTBOX_RELAY_SENT_TTL_SEC
+
+    @staticmethod
+    def _kafka_partition_key(event: dict[str, Any]) -> str:
+        return DialogOutboxRelayWorker._counter_owner_id(event)
+
+    @staticmethod
+    def _counter_owner_id(event: dict[str, Any]) -> str:
+        """Kafka key for all events that mutate unread:{owner_id}.
+
+        message.sent  -> recipient_id (who receives the message)
+        dialog.read   -> user_id      (who opened the dialog)
+
+        For the same counter both resolve to the same UUID, e.g. A sends to B:
+        sent uses recipient_id=B, read uses user_id=B -> one partition -> ordered processing.
+        """
+        event_type = event.get("type")
+        if event_type == "message.sent":
+            return str(event["recipient_id"])
+        if event_type == "dialog.read":
+            return str(event["user_id"])
+        return str(event["event_id"])
 
     @staticmethod
     def _extract_payload(fields: dict[Any, Any]) -> str:
